@@ -9,7 +9,7 @@ with hardware memory tagging extensions, such as Arm MTE, and related technologi
 Make sure you have a recent clang++ instralled.
 Building with g++ is supported, but not regularly tested.
 ```
-git clone git@github.com:google/sanitizers.git
+git clone git@github.com:kcc/sanitizers.git
 cd sanitizers/mtmalloc/src
 make
 ```
