@@ -3,7 +3,7 @@
 Don't expect to see much here at the moment.
 This malloc implementation is mostly to enable our experimentation
 with hardware memory tagging extensions, such as Arm MTE, and related technologies
-(e.g.[MarkUs-Gc](https://github.com/google/sanitizers/blob/master/hwaddress-sanitizer/MarkUs-GC.md))
+(e.g.[MarkUs-Gc](https://github.com/kcc/sanitizers/blob/master/hwaddress-sanitizer/MarkUs-GC.md))
 
 ## Get and Build
 Make sure you have a recent clang++ instralled.
