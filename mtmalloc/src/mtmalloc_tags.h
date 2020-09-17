@@ -8,9 +8,11 @@
 #include "mtmalloc_shadow.h"
 namespace MTMalloc {
 
+template <size_t kAllocatorSpace, size_t kAllocatorSize,
+          size_t kSizeAlignmentForSecondRange>
 class AddressAndMemoryTags {
  public:
-  Init() {
+  void Init() {
     LargeShadow.Init();
     SmallShadow.Init();
   }
@@ -55,15 +57,13 @@ class AddressAndMemoryTags {
 
  private:
   // HWASAN-like Shadow. One with 16-byte granularity, one with 1k granularity.
-  const size_t kSmallMemoryTagSpace = 0x300000000000ULL;
-  const size_t kLargeMemoryTagSpace = 0x400000000000ULL;
+  static const size_t kSmallMemoryTagSpace = 0x300000000000ULL;
+  static const size_t kLargeMemoryTagSpace = 0x400000000000ULL;
   FixedShadow<kSmallMemoryTagSpace, kAllocatorSpace, kAllocatorSize / 2, 16>
       SmallShadow;
   FixedShadow<kLargeMemoryTagSpace, kAllocatorSpace + kAllocatorSize / 2,
               kAllocatorSize / 2, kSizeAlignmentForSecondRange>
       LargeShadow;
-
-
 };
 
 };  // namespace MTMalloc

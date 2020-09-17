@@ -41,6 +41,7 @@
 #include "mtmalloc_util.h"
 #include "mtmalloc_size_classes.h"
 #include "mtmalloc_shadow.h"
+#include "mtmalloc_tags.h"
 
 #include <type_traits>
 #include <sys/mman.h>
@@ -90,7 +91,9 @@ const size_t kMeta[kNumSizeClassRanges] = {
 const size_t kFirstSuperPage[kNumSizeClassRanges] = {
     kAllocatorSpace, kAllocatorSpace + kAllocatorSize / 2};
 
-static AddressAndMemoryTags Tags;
+static AddressAndMemoryTags<kAllocatorSpace, kAllocatorSize,
+                            kSizeAlignmentForSecondRange>
+    Tags;
 
 const size_t kSizeOfLocalQuarantine = 1 << 20;
 
@@ -906,8 +909,7 @@ struct Allocator {
     if (mmap_res != (void *)kAllocatorSpace) TRAP();
 
     SuperPageMetadata.Init();
-    SmallShadow.Init();
-    LargeShadow.Init();
+    Tags.Init();
   }
 
   static void InitSingleton() { SingletonSelf->InitAll(); }
