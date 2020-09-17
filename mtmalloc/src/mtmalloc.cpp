@@ -37,9 +37,9 @@ extern "C" {
 void __mtm_access(void *Ptr) {
   allocator.CountAccess(Ptr);
   if (allocator.IsMine(Ptr)) {
-    uint8_t AddressTag = MTMalloc::GetAddressTag(Ptr);
+    uint8_t AddressTag = MTMalloc::Tags.GetAddressTag(Ptr);
     uint8_t MemoryTag =
-        MTMalloc::GetMemoryTag(MTMalloc::ApplyAddressTag(Ptr, 0));
+        MTMalloc::Tags.GetMemoryTag(MTMalloc::Tags.ApplyAddressTag(Ptr, 0));
     MemoryTag &= 15;
     if (AddressTag != MemoryTag) {
       fprintf(stderr, "ERROR: address-memory-tag-mismatch %p %x %x\n", Ptr,

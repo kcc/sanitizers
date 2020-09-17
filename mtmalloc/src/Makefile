@@ -23,7 +23,7 @@ clean:
 	rm -f *.a *.o *_test *_benchmark
 
 HEADERS= mtmalloc.h mtmalloc_config.h mtmalloc_large.h mtmalloc_util.h \
-	 mtmalloc_size_classes.h mtmalloc_shadow.h
+	 mtmalloc_size_classes.h mtmalloc_shadow.h mtmalloc_tags.h
 
 mtmalloc_test: mtmalloc_test.cpp $(HEADERS) Makefile
 	$(CXX) $(CXXFLAGS) $< -o $@ -fPIC -lgtest -lgtest_main -lpthread
