@@ -12,18 +12,27 @@
 
 #define ALIAS(x) __attribute__((alias(x)))
 
+static MTMalloc::Allocator allocator;
+static MTMalloc::LargeAllocator large;
 
 namespace MTMalloc {
 MallocConfig Config;
-Allocator *Allocator::SingletonSelf;
+Allocator *Allocator::SingletonSelf = &allocator;
 pthread_key_t Allocator::TSDKey;
 pthread_once_t Allocator::TSDOKeyOnce = PTHREAD_ONCE_INIT;
 }
 
-static MTMalloc::Allocator allocator;
-static MTMalloc::LargeAllocator large;
 
 struct InitAndExit {
+  InitAndExit() {
+    MTMalloc::Config.Init();
+    if (MTMalloc::Config.ReleaseFreq) {
+      pthread_t t;
+      pthread_create(&t, nullptr, MTMalloc::Allocator::MemoryReleaseThread,
+                     nullptr);
+      pthread_detach(t);
+    }
+  }
   ~InitAndExit() {
     if (MTMalloc::Config.PrintStats)
       allocator.PrintAll();

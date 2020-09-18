@@ -55,7 +55,6 @@
 #include <pthread.h>
 #include <dirent.h>
 #include <signal.h>
-
 #include <algorithm>
 
 #include <immintrin.h>
@@ -268,6 +267,7 @@ struct SuperPage {
     USED_DATA  = 3,
     QUARANTINED = 5,
     MARKED      = 7,
+    RELEASING   = 255,
   };
 
   uintptr_t This() const { return reinterpret_cast<uintptr_t>(this); }
@@ -515,6 +515,35 @@ struct SuperPage {
     return CountStates(QUARANTINED);
   }
 
+  // Very basic release to OS.
+  // Possible improvements:
+  // * release parts of the SuperPage.
+  // * use 8-byte or 16-byte CAS (and loads).
+  // * Try not to release already released SuperPage.
+  void MaybeReleaseToOs() {
+    // fprintf(stderr, "MaybeReleaseToOs %p\n", this);
+    auto SCD = GetSCD();
+    size_t NumChunks = SCD.NumChunks;
+    size_t Ava = CountAvailable();
+    if (Ava != NumChunks) return;
+    size_t NumReadyToRelease = 0;
+    IterateStates([&](uint8_t &S) {
+      uint8_t ExpectedState = AVAILABLE;
+      uint8_t NewState = RELEASING;
+      if (__atomic_compare_exchange_n(&S, &ExpectedState, NewState, true,
+                                      __ATOMIC_RELAXED, __ATOMIC_RELAXED))
+        NumReadyToRelease++;
+    });
+    if (NumReadyToRelease == NumChunks)
+      madvise(this, kSuperPageSize, MADV_DONTNEED);
+    else
+      IterateStates([](uint8_t &S) {
+        if (__atomic_load_n(&S, __ATOMIC_RELAXED) == RELEASING)
+          __atomic_store_n(&S, AVAILABLE, __ATOMIC_RELAXED);
+      });
+    fprintf(stderr, "SP %p: %s\n", this,
+            NumReadyToRelease == NumChunks ? "released" : "failed to release");
+  }
 };
 
 SuperPage *A2SP(uintptr_t Addr) {
@@ -752,7 +781,6 @@ struct Allocator {
   }
 
   size_t KillAllThreadsButMyself() {
-    SingletonSelf = this;
     pid_t MyTID = GetTID();
     pid_t MyPID = getpid();
     // fprintf(stderr, "KillAllThreadsButMyself %d\n", MyTID);
@@ -855,6 +883,21 @@ struct Allocator {
     }
   }
 
+  void MemoryReleaseThread() {
+    fprintf(stderr, "MemoryReleaseThread\n");
+    for (size_t Iter = 0; ; Iter++) {
+      size_t RangeNum = Iter % kNumSizeClassRanges;
+      size_t N = GetNumSuperPages(RangeNum);
+      if (!N) continue;
+      size_t Idx = Iter % N;
+      GetSuperPage(RangeNum, Idx)->MaybeReleaseToOs();
+      usleep(1000 * Config.ReleaseFreq);
+    }
+  }
+  static void *MemoryReleaseThread(void *) {
+    SingletonSelf->MemoryReleaseThread();
+    return nullptr;
+  }
 
   void SignalHandler() {
     ScanLoop();
@@ -882,6 +925,7 @@ struct Allocator {
   void InitAll() {
     Config.Init();
     if (Config.HandleSigUsr2) SetSignalHandler();
+
     for (size_t i = 0; i < kNumSizeClasses; i++) {
       size_t ChunkSize = SCArray[i];
       while (!IsCorrectDivToMul(ChunkSize,
