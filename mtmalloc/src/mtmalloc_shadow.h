@@ -11,9 +11,9 @@
 
 namespace MTMalloc {
 template <uintptr_t kShadowBeg, uintptr_t kBeg, uintptr_t kSize,
-          uintptr_t kGranularity>
+          uintptr_t kGranularity, uintptr_t kUnitSize = 1>
 struct FixedShadow {
-  static const uintptr_t kShadowSize = kSize / kGranularity;
+  static const uintptr_t kShadowSize = kUnitSize * kSize / kGranularity;
   static void Init() {
     void *Res =
         mmap((void *)kShadowBeg, kShadowSize, PROT_READ | PROT_WRITE,
@@ -25,12 +25,14 @@ struct FixedShadow {
   }
   static uint8_t Get(uintptr_t Val) { return *GetShadowPtr(Val); }
   static void Set(uintptr_t Val, uint8_t Shadow) {
+    static_assert(kUnitSize == 1);
     Check(Val);
     *GetShadowPtr(Val) = Shadow;
-    reinterpret_cast<uint8_t *>(kShadowBeg)[(Val - kBeg) / kGranularity] =
-        Shadow;
+    reinterpret_cast<uint8_t *>(
+        kShadowBeg)[kUnitSize * (Val - kBeg) / kGranularity] = Shadow;
   }
   static void SetRange(uintptr_t Beg, uintptr_t Size, uint8_t ShadowVal) {
+    static_assert(kUnitSize == 1);
     Check(Beg);
     Check(Size);
     uint8_t *ShadowPos = GetShadowPtr(Beg);
@@ -40,7 +42,7 @@ struct FixedShadow {
 
   static uint8_t *GetShadowPtr(uintptr_t Val) {
     return reinterpret_cast<uint8_t *>(kShadowBeg +
-                                       (Val - kBeg) / kGranularity);
+                                       kUnitSize * (Val - kBeg) / kGranularity);
   }
   static void Check(uintptr_t Val) {
     if (Val % kGranularity) __builtin_trap();

@@ -74,6 +74,8 @@ const size_t kPrimaryMetaSize = kAllocatorSize / kSuperPageSize;
 FixedShadow<kPrimaryMetaSpace, kAllocatorSpace, kAllocatorSize, kSuperPageSize>
     SuperPageMetadata;
 
+const size_t kSecondRangeMeta = 0x710000000000ULL;
+
 // One range contains size classes specific to that range.
 // Dividing size classes allows to do quicker search for relevant SuperPages,
 // and allows to have range-specific metadata implementation.
@@ -87,8 +89,12 @@ const size_t kMeta[kNumSizeClassRanges] = {
     kPrimaryMetaSpace,
     kPrimaryMetaSpace + kPrimaryMetaSize / 2};
 
-const size_t kFirstSuperPage[kNumSizeClassRanges] = {
+constexpr size_t kFirstSuperPage[kNumSizeClassRanges] = {
     kAllocatorSpace, kAllocatorSpace + kAllocatorSize / 2};
+
+FixedShadow<kSecondRangeMeta, kFirstSuperPage[1], kAllocatorSize / 2,
+            kSuperPageSize, kSuperPageSize / kSizeAlignmentForSecondRange>
+    SecondRangeMeta;
 
 static AddressAndMemoryTags<kAllocatorSpace, kAllocatorSize,
                             kSizeAlignmentForSecondRange>
@@ -179,21 +185,19 @@ static uint32_t DivBySizeViaMul(uint32_t Left, uint32_t DivMul) {
 
 static constexpr size_t kStateArrayAlignment = 32;
 
-constexpr size_t SizeOfMeta(size_t NumChunks) {
+constexpr size_t SizeOfInlineMeta(size_t NumChunks, size_t RangeNum) {
+  if (RangeNum == 1) return 0;
   return //kStateArrayAlignment +
       RoundUpTo(NumChunks, kStateArrayAlignment);
 }
 
-constexpr size_t ComputeNumChunks(size_t ChunkSize) {
+constexpr size_t ComputeNumChunks(size_t ChunkSize, size_t RangeNum) {
   size_t Approx = kSuperPageSize / ChunkSize;
   for (size_t NumChunks = Approx; NumChunks > 0; NumChunks--)
-    if (SizeOfMeta(NumChunks) + NumChunks * ChunkSize <= kSuperPageSize)
+    if (SizeOfInlineMeta(NumChunks, RangeNum) + NumChunks * ChunkSize <=
+        kSuperPageSize)
       return NumChunks;
   __builtin_trap();
-}
-
-size_t NumChunksBySizeClass(SizeClass SC) {
-  return ComputeNumChunks(SizeClassToSize(SC));
 }
 
 template <class CallBack>
@@ -279,8 +283,10 @@ struct SuperPage {
   SizeClass GetSC() { return GetSizeClass(This()); }
   SizeClassDescr GetSCD() { return SCDescr[GetSizeClass(This()).v]; }
   // uint32_t &LastIdxHint() { return *reinterpret_cast<uint32_t *>(End() - 16); }
-  uint8_t *State(size_t NumChunks) {
-    return reinterpret_cast<uint8_t *>(End() - SizeOfMeta(NumChunks));
+  uint8_t *State(size_t NumChunks, size_t RangeNum) {
+    if (RangeNum == 1)
+      return SecondRangeMeta.GetShadowPtr(This());
+    return reinterpret_cast<uint8_t *>(End() - SizeOfInlineMeta(NumChunks, 0));
   }
 
   uint8_t *AddressOfChunk(size_t Idx, SizeClassDescr SCD) {
@@ -289,8 +295,10 @@ struct SuperPage {
 
   template <typename Callback>
   void IterateStates(Callback CB) {
-    size_t N = GetSCD().NumChunks;
-    uint8_t *S = State(N);
+    auto SCD = GetSCD();
+    size_t N = SCD.NumChunks;
+    size_t RangeNum = SCD.RangeNum;
+    uint8_t *S = State(N, RangeNum);
     for (size_t i = 0; i < N; i++)
       CB(S[i]);
   }
@@ -307,8 +315,8 @@ struct SuperPage {
   static void PrintSizes(SizeClass SC) {
     size_t Size = SizeClassToSize(SC);
     SizeClassDescr SCD = SCDescr[SC.v];
-    size_t NumChunks = NumChunksBySizeClass(SC);
-    size_t MetaSize = SizeOfMeta(NumChunks);
+    size_t NumChunks = ComputeNumChunks(SizeClassToSize(SC), SCD.RangeNum);
+    size_t MetaSize = SizeOfInlineMeta(NumChunks, SCD.RangeNum);
     size_t Slack = kSuperPageSize - Size * NumChunks - MetaSize;
     fprintf(stderr, "sc %d r %d sz %zd chunks %zd meta %zd slack %zd\tss %zd\n",
             (int)SC.v, (int)SCD.RangeNum, Size, NumChunks, MetaSize, Slack,
@@ -348,7 +356,7 @@ struct SuperPage {
     // be recycled less frequently.
     size_t Hint = *HintPtr; // LastIdxHint();
     size_t NumChunks = SCD.NumChunks;
-    uint8_t *S = State(NumChunks);
+    uint8_t *S = State(NumChunks, SCD.RangeNum);
     uint8_t NewState = DataOnly ? USED_DATA : USED_MIXED;
 
     auto TryPos = [&](size_t Pos) -> bool {
@@ -377,8 +385,9 @@ struct SuperPage {
               "Allocate [%p,%p) SP %p Pos %zd ChunkSize %zd NumChunks %d "
               "Meta %zd "
               "LastIdxHint %zd\n",
-              Res, (char*)Res + SCD.ChunkSize(), this, Pos, SCD.ChunkSize(),
-              (int)SCD.NumChunks, SizeOfMeta(SCD.NumChunks), *HintPtr);
+              Res, (char *)Res + SCD.ChunkSize(), this, Pos, SCD.ChunkSize(),
+              (int)SCD.NumChunks, SizeOfInlineMeta(SCD.NumChunks, SCD.RangeNum),
+              *HintPtr);
       Print();
     }
     return Res;
@@ -399,7 +408,7 @@ struct SuperPage {
       TRAP();
     }
     if (Idx >= SCD.NumChunks) TRAP();
-    return &State(SCD.NumChunks)[Idx];
+    return &State(SCD.NumChunks, SCD.RangeNum)[Idx];
   }
 
   void Mark(uintptr_t P) {
@@ -409,7 +418,7 @@ struct SuperPage {
     uint32_t ChunkSizeMulDiv = SCD.ChunkSizeMulDiv;
     size_t Idx = DivBySizeViaMul(P, ChunkSizeMulDiv);
     if (Idx >= NumChunks) return;
-    uint8_t *S = State(NumChunks);
+    uint8_t *S = State(NumChunks, SCD.RangeNum);
     if (__atomic_load_n(&S[Idx], __ATOMIC_RELAXED) == QUARANTINED)
       __atomic_store_n(&S[Idx], MARKED, __ATOMIC_RELAXED);
   }
@@ -480,7 +489,7 @@ struct SuperPage {
     size_t ChunkSize = SCD.ChunkSize();
     size_t SuperPageRegionSize[2] = {NumSuperPages[0] * kSuperPageSize,
                                      NumSuperPages[1] * kSuperPageSize};
-    uint8_t *S = State(SCD.NumChunks);
+    uint8_t *S = State(SCD.NumChunks, SCD.RangeNum);
     for (size_t Idx = 0, N = SCD.NumChunks; Idx < N; Idx++) {
       if (S[Idx] == USED_MIXED) {
         uint8_t *P = AddressOfChunk(Idx, SCD);
@@ -520,6 +529,9 @@ struct SuperPage {
   // * release parts of the SuperPage.
   // * use 8-byte or 16-byte CAS (and loads).
   // * Try not to release already released SuperPage.
+  // * Choose pages to try-to-release better than randomly.
+  // Can we use this?
+  // https://www.kernel.org/doc/html/latest/admin-guide/mm/pagemap.html
   void MaybeReleaseToOs() {
     // fprintf(stderr, "MaybeReleaseToOs %p\n", this);
     auto SCD = GetSCD();
@@ -534,15 +546,22 @@ struct SuperPage {
                                       __ATOMIC_RELAXED, __ATOMIC_RELAXED))
         NumReadyToRelease++;
     });
-    if (NumReadyToRelease == NumChunks)
+    if (NumReadyToRelease == NumChunks) {
       madvise(this, kSuperPageSize, MADV_DONTNEED);
-    else
+      if (SCD.RangeNum == 1)  // state is stored separately.
+        IterateStates([](uint8_t &S) {
+          __atomic_store_n(&S, AVAILABLE, __ATOMIC_RELAXED);
+        });
+    } else {
       IterateStates([](uint8_t &S) {
         if (__atomic_load_n(&S, __ATOMIC_RELAXED) == RELEASING)
           __atomic_store_n(&S, AVAILABLE, __ATOMIC_RELAXED);
       });
-    fprintf(stderr, "SP %p: %s\n", this,
-            NumReadyToRelease == NumChunks ? "released" : "failed to release");
+    }
+    if (0)
+      fprintf(
+          stderr, "SP %p: %s\n", this,
+          NumReadyToRelease == NumChunks ? "released" : "failed to release");
   }
 };
 
@@ -938,7 +957,7 @@ struct Allocator {
       assert(ChunkSize / 16 < (1 << 16));  // fits into uint16_t.
       SCDescr[i].RangeNum = (ChunkSize % kSizeAlignmentForSecondRange) == 0;
       SCDescr[i].ChunkSizeDiv16 = ChunkSize / 16;
-      SCDescr[i].NumChunks = ComputeNumChunks(ChunkSize);
+      SCDescr[i].NumChunks = ComputeNumChunks(ChunkSize, SCDescr[i].RangeNum);
       SCDescr[i].ChunkSizeMulDiv = ComputeMulForDiv(ChunkSize, kDivMulShift);
       if (!IsCorrectDivToMul(ChunkSize, SCDescr[i].ChunkSizeMulDiv,
                              kDivMulShift, kSuperPageSize)) {
@@ -953,6 +972,7 @@ struct Allocator {
     if (mmap_res != (void *)kAllocatorSpace) TRAP();
 
     SuperPageMetadata.Init();
+    SecondRangeMeta.Init();
     Tags.Init();
   }
 

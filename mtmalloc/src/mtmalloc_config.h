@@ -36,7 +36,7 @@ struct MallocConfig {
     UseAliases = !!EnvToLong("MTM_USE_ALIASES", 0, 0, 1);
     UseShadow = !!EnvToLong("MTM_USE_SHADOW", 0, 0, 1);
     HandleSigUsr2 = EnvToBool("MTM_HANDLE_SIGUSR2", true);
-    ReleaseFreq = EnvToLong("MTM_RELEASE_FREQ", 0, 0, 255);
+    ReleaseFreq = EnvToLong("MTM_RELEASE_FREQ", 50, 0, 255);
   }
 
   MallocConfig() { Init(); }

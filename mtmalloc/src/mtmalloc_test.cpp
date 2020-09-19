@@ -214,11 +214,11 @@ TEST(Allocate, FirstAllocationTest) {
   memset(&A, 0, sizeof(A));
   memset(&TLS, 0, sizeof(TLS));
   size_t kSize = 1 << 15;
-  for (size_t i = 0; i <= 14; i++) {
+  for (size_t i = 0; i <= 15; i++) {
     void *P = A.Allocate(kSize);
     EXPECT_EQ(reinterpret_cast<uintptr_t>(P), MTMalloc::kFirstSuperPage[1] + i * kSize);
   }
-  for (size_t i = 0; i <= 14; i++) {
+  for (size_t i = 0; i <= 15; i++) {
     void *P = A.Allocate(kSize);
     EXPECT_EQ(reinterpret_cast<uintptr_t>(P),
               MTMalloc::kFirstSuperPage[1] + MTMalloc::kSuperPageSize + i * kSize);
