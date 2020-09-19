@@ -903,7 +903,7 @@ struct Allocator {
   }
 
   void MemoryReleaseThread() {
-    fprintf(stderr, "MemoryReleaseThread\n");
+    // fprintf(stderr, "MemoryReleaseThread\n");
     for (size_t Iter = 0; ; Iter++) {
       size_t RangeNum = Iter % kNumSizeClassRanges;
       size_t N = GetNumSuperPages(RangeNum);
