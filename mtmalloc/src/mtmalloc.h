@@ -378,7 +378,7 @@ struct SuperPage {
       uint8_t ExpectedState = AVAILABLE;
       // CAS! Alternative is to privatise a SuperPage.
       if (!__atomic_compare_exchange_n(&S[Pos], &ExpectedState, NewState,
-                                       true, __ATOMIC_RELAXED,
+                                       false, __ATOMIC_RELAXED,
                                        __ATOMIC_RELAXED))
         return false;
       return true;
