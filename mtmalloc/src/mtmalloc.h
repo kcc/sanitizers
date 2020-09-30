@@ -57,7 +57,9 @@
 #include <signal.h>
 #include <algorithm>
 
+#ifdef __x86_64__
 #include <immintrin.h>
+#endif
 
 namespace MTMalloc {
 
@@ -214,6 +216,7 @@ size_t FindByte_Plain(uint8_t *Bytes, uint8_t Value, size_t N,
   return -1;
 }
 
+#ifdef __x86_64__
 template <class CallBack>
 size_t FindByte_PEXT(uint8_t *Bytes, uint8_t Value, size_t N,
                     size_t StartPosHint, CallBack CB) {
@@ -240,7 +243,9 @@ size_t FindByte_PEXT(uint8_t *Bytes, uint8_t Value, size_t N,
   }
   return -1;
 }
+#endif  // __x86_64__
 
+#ifdef __x86_64__
 template <class CallBack>
 size_t FindByte_AVX256(uint8_t *Bytes, uint8_t Value, size_t N,
                        size_t StartPosHint, CallBack CB) {
@@ -262,7 +267,17 @@ size_t FindByte_AVX256(uint8_t *Bytes, uint8_t Value, size_t N,
   }
   return -1;
 }
+#endif  // __x86_64__
 
+template <class CallBack>
+size_t FindByte(uint8_t *Bytes, uint8_t Value, size_t N,
+                    size_t StartPosHint, CallBack CB) {
+#ifdef __x86_64__
+	return FindByte_PEXT(Bytes, Value, N, StartPosHint, CB);
+#else
+	return FindByte_Plain(Bytes, Value, N, StartPosHint, CB);
+#endif
+}
 struct SuperPage {
 
   enum state_t {
@@ -369,7 +384,7 @@ struct SuperPage {
       return true;
     };
 
-    size_t Pos = FindByte_PEXT(S, AVAILABLE, NumChunks, Hint, TryPos);
+    size_t Pos = FindByte(S, AVAILABLE, NumChunks, Hint, TryPos);
     if (Pos == (size_t)-1) return nullptr;
     if (Pos >= NumChunks) {
       fprintf(stderr, "Pos %zd NumChunks %zd ChunkSize %zd Hint %zd\n", Pos,
