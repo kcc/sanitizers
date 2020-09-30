@@ -6,6 +6,13 @@
 #define __MTMCLLOC_LARGE_H
 
 #include <pthread.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <sys/mman.h>
+
+#include "mtmalloc_config.h"
+#include "mtmalloc_util.h"
 
 // Super-simple allocator for large memory regions.
 // It need to be enhanced in multiple dimensions.
@@ -25,7 +32,7 @@ class LargeAllocator {
     if (Config.LargeAllocVerbose)
       fprintf(stderr, "LargeAllocator::Allocate:   %p %zd\n", Header,
               SizeWithHeader);
-    if ((void*)Header == (void*)-1) TRAP();
+    if ((void*)Header == (void*)-1) __builtin_trap();
     Header[0] = kLeftHeaderMagic;
     Header[1] = SizeWithHeader;
     Header[2] = kRightHeaderMagic;
@@ -53,7 +60,8 @@ class LargeAllocator {
   uintptr_t *GetHeader(void *Ptr) {
     uintptr_t *Header =
         reinterpret_cast<uintptr_t *>(Ptr) - kCpuPageSize / sizeof(Header[0]);
-    if (Header[0] != kLeftHeaderMagic && Header[2] != kRightHeaderMagic) TRAP();
+    if (Header[0] != kLeftHeaderMagic && Header[2] != kRightHeaderMagic)
+      __builtin_trap();
     return Header;
   }
 };

@@ -5,6 +5,9 @@
 #ifndef __MTMALLOC_SIZE_CLASSES_H__
 #define __MTMALLOC_SIZE_CLASSES_H__
 
+#include <stdint.h>
+#include <stddef.h>
+
 namespace MTMalloc {
 
 // All size classes are 0 mod 16.

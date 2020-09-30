@@ -12,7 +12,10 @@
 # In order to build with g++, use "make CXX=g++" (not tested regularly).
 
 CXX=clang++
-CXXFLAGS= -O2 -g -std=c++17 -fno-exceptions -Wall -march=native
+ifeq ($(shell uname -a | grep -o x86_64), x86_64)
+	ARCH=-march=native
+endif
+CXXFLAGS= -O2 -g -std=c++17 -fno-exceptions -Wall $(ARCH)
 
 all: mtmalloc_test malloc_benchmark standalone_malloc_test
 
