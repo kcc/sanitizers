@@ -557,7 +557,7 @@ struct SuperPage {
     IterateStates([&](uint8_t &S) {
       uint8_t ExpectedState = AVAILABLE;
       uint8_t NewState = RELEASING;
-      if (__atomic_compare_exchange_n(&S, &ExpectedState, NewState, true,
+      if (__atomic_compare_exchange_n(&S, &ExpectedState, NewState, false,
                                       __ATOMIC_RELAXED, __ATOMIC_RELAXED))
         NumReadyToRelease++;
     });
