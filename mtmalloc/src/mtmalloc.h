@@ -861,6 +861,7 @@ struct Allocator {
   }
 
   bool IsMine(void *Ptr) {
+    Ptr = Tags.ApplyAddressTag(Ptr, 0);
     uintptr_t P = reinterpret_cast<uintptr_t>(Ptr);
     if (Config.UseAliases)
       return P >= kAllocatorSpace && P < kAllocatorSpace + 16 * kAllocatorSize;

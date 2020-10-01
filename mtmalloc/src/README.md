@@ -45,7 +45,6 @@ It also works as a poor man's [HWASAN](https://clang.llvm.org/docs/HardwareAssis
 
 ```
 % cat uaf.cpp
-cat uaf.cpp 
 char *p = new char[1000];
 char *q = p;
 int main() {
@@ -64,15 +63,29 @@ stat.allocs sc 21       size    480     count 1
 stat.allocs sc 28       size    1024    count 2
 stat.accesses sc 28     size    1024    count 1
 stat.access_other 4
-# Use as a poor man's HWASAN
-% MTM_PRINT_STATS=1 MTM_USE_ALIASES=1 MTM_USE_SHADOW=1 ./a.out 
-ERROR: address-memory-tag-mismatch 0x6f8000080000 f 0
-Illegal instruction
 ```
 
 ## HWASAN 
 MTMalloc is not a full-featured [HWASAN](https://clang.llvm.org/docs/HardwareAssistedAddressSanitizerDesign.html) implementation,
 but it can be used as a simple heap-only HWASAN-like tool on x86-64 (with tsan instrumentation, as described above). 
 * `MTM_USE_SHADOW=1` enables the use of software shadow memory (see `SetMemoryTag()` / `GetMemoryTag()`)
-* `MTM_USE_ALIASES=1` uses `mremap` to implement 16 page aliases for every small heap allocation, thus effectively implmenting 4-bit address tags in bits `40..43`. This is wastly inefficient compared to Arm's top-byte-ignore (TBI), but works as functional model of TBI. See `ApplyAddressTag()` and `GetAddressTag()`. 
+* (x86_64-only) `MTM_USE_ALIASES=1` uses `mremap` to implement 16 page aliases for every small heap allocation, thus effectively implmenting 4-bit address tags in bits `40..43`. This is wastly inefficient compared to Arm's top-byte-ignore (TBI), but works as functional model of TBI. See `ApplyAddressTag()` and `GetAddressTag()`. 
 * The callbacks inserted by tsan instrumentation (`__mtm_access()`) verify that the address belongs to the small heap and if so, checks whether the address tag matches the memory tag.
+
+On x86_64:
+```
+# Use as a poor man's HWASAN
+% MTM_USE_ALIASES=1 MTM_USE_SHADOW=1 ./a.out 
+ERROR: address-memory-tag-mismatch 0x6f8000080000 f 0
+Illegal instruction
+```
+
+On AArch64:
+
+```
+% MTM_USE_SHADOW=1 ./a.out 
+ERROR: address-memory-tag-mismatch 0x7700608000080000 77 8
+Trace/breakpoint trap (core dumped)
+
+```
+

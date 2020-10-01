@@ -39,6 +39,7 @@ class AddressAndMemoryTags {
   }
 
   void *ApplyAddressTag(void *Addr, uint8_t AddrTag) {
+#ifdef __x86_64__
     if (!Config.UseAliases) return Addr;
     uintptr_t Ptr = reinterpret_cast<uintptr_t>(Addr);
     uintptr_t Tag = AddrTag & 15;
@@ -49,10 +50,23 @@ class AddressAndMemoryTags {
     // fprintf(stderr, "Tag %016zx\n", Tag);
     Addr = reinterpret_cast<uint8_t *>((Ptr & ~Mask) | Tag);
     return Addr;
+#else  // assume TBI
+    uintptr_t Ptr = reinterpret_cast<uintptr_t>(Addr);
+    uintptr_t Tag = AddrTag;
+    Tag <<= 56;
+    uintptr_t Mask = 255;
+    Mask <<= 56;
+    Addr = reinterpret_cast<uint8_t *>((Ptr & ~Mask) | Tag);
+    return Addr;
+#endif
   }
 
   uint8_t GetAddressTag(void *Addr) {
+#ifdef __x86_64__
     return (reinterpret_cast<uintptr_t>(Addr) >> 40) & 15;
+#else  // assume TBI
+    return (reinterpret_cast<uintptr_t>(Addr) >> 56);
+#endif
   }
 
  private:
