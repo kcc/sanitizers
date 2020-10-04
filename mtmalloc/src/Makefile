@@ -14,6 +14,8 @@
 CXX=clang++
 ifeq ($(shell uname -a | grep -o x86_64), x86_64)
 	ARCH=-march=native
+else
+	ARCH=-march=armv8.5-a+memtag
 endif
 CXXFLAGS= -O2 -g -std=c++17 -fno-exceptions -Wall $(ARCH)
 

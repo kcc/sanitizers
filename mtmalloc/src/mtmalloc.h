@@ -68,8 +68,11 @@ static const size_t kSuperPageSize = 1 << 19; // 2Mb
 
 const size_t kMaxThreads = 1 << 12;
 
+// We can map a larger region for the allocator but QEMU doesn't like that:
+// https://bugs.launchpad.net/qemu/+bug/1898011
+
 const size_t kAllocatorSpace = 0x600000000000ULL;
-const size_t kAllocatorSize  =  0x10000000000ULL;  // 1T.
+const size_t kAllocatorSize  =  1ULL << 37;
 
 const size_t kPrimaryMetaSpace = 0x700000000000ULL;
 const size_t kPrimaryMetaSize = kAllocatorSize / kSuperPageSize;
@@ -462,7 +465,7 @@ struct SuperPage {
 
   // Returns the new tag.
   uint8_t UpdateMemoryTagOnFree(void *P, size_t Size) {
-    if (!Config.UseShadow) return 0;
+    // if (!Config.UseShadow && !Config.UseMTE) return 0;
     uint8_t OldMemoryTag = Tags.GetMemoryTag(P);
     uint8_t NewMemoryTag = OldMemoryTag + 1;  // or random?
     Tags.SetMemoryTag(P, Size, NewMemoryTag);
@@ -874,6 +877,7 @@ struct Allocator {
     uint8_t MemoryTag = Tags.GetMemoryTag(Ptr) & 15;
     // fprintf(stderr, "Deallocate %p %x %x\n", Ptr, (int)AddressTag,
     //        (int)MemoryTag);
+    // TODO: ceck with UseMTE.
     if (Config.UseShadow && Config.UseAliases && AddressTag != MemoryTag) {
       fprintf(stderr, "ERROR: double-free %p\n", Ptr);
       __builtin_trap();
@@ -1000,7 +1004,9 @@ struct Allocator {
     SizeClassDescr SCD;
     SizeClass SC = SizeToSizeClass(Size, SCD);
     SuperPage *Res = GetSuperPage(SCD.RangeNum, GetNumSuperPages(SCD.RangeNum));
-    void *MmapRes = mmap(Res, kSuperPageSize, PROT_READ | PROT_WRITE,
+    void *MmapRes = mmap(Res, kSuperPageSize,
+		         Tags.ProtMTE() |
+		         PROT_READ | PROT_WRITE,
                          MAP_FIXED | MAP_ANONYMOUS | MAP_NORESERVE |
                              (Config.UseAliases ? MAP_SHARED : MAP_PRIVATE),
                          -1, 0);
