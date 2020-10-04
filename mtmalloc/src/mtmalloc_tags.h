@@ -13,6 +13,12 @@
 #include <unistd.h>
 #include <sys/prctl.h>
 
+#ifdef __aarch64__
+static const bool kUseArmTBI = 1;
+#else
+static const bool kUseArmTBI = 1;
+#endif
+
 #ifdef __ARM_FEATURE_MEMORY_TAGGING
 #include <arm_acle.h>
 inline void EnableSyncMTE() {
@@ -81,32 +87,30 @@ class AddressAndMemoryTags {
   }
 
   void *ApplyAddressTag(void *Addr, uint8_t AddrTag) {
-#ifdef __x86_64__
-    if (!Config.UseAliases) return Addr;
-    uintptr_t Ptr = reinterpret_cast<uintptr_t>(Addr);
-    uintptr_t Tag = AddrTag & 15;
-    Tag <<= 40;
-    uintptr_t Mask = 15;
-    Mask <<= 40;
-    Addr = reinterpret_cast<uint8_t *>((Ptr & ~Mask) | Tag);
-    return Addr;
-#else  // assume TBI
-    uintptr_t Ptr = reinterpret_cast<uintptr_t>(Addr);
-    uintptr_t Tag = AddrTag;
-    Tag <<= 56;
-    uintptr_t Mask = 255;
-    Mask <<= 56;
-    Addr = reinterpret_cast<uint8_t *>((Ptr & ~Mask) | Tag);
-    return Addr;
-#endif
+    if (kUseArmTBI) {
+      uintptr_t Ptr = reinterpret_cast<uintptr_t>(Addr);
+      uintptr_t Tag = AddrTag;
+      Tag <<= 56;
+      uintptr_t Mask = 255;
+      Mask <<= 56;
+      Addr = reinterpret_cast<uint8_t *>((Ptr & ~Mask) | Tag);
+      return Addr;
+    } else {
+      if (!Config.UseAliases) return Addr;
+      uintptr_t Ptr = reinterpret_cast<uintptr_t>(Addr);
+      uintptr_t Tag = AddrTag & 15;
+      Tag <<= 40;
+      uintptr_t Mask = 15;
+      Mask <<= 40;
+      Addr = reinterpret_cast<uint8_t *>((Ptr & ~Mask) | Tag);
+      return Addr;
+    }
   }
 
   uint8_t GetAddressTag(void *Addr) {
-#ifdef __x86_64__
+    if (kUseArmTBI)
+      return (reinterpret_cast<uintptr_t>(Addr) >> 56);
     return (reinterpret_cast<uintptr_t>(Addr) >> 40) & 15;
-#else  // assume TBI
-    return (reinterpret_cast<uintptr_t>(Addr) >> 56);
-#endif
   }
 
   int ProtMTE() {
