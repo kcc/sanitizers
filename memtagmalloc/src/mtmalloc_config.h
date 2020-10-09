@@ -35,7 +35,7 @@ struct MallocConfig {
     LargeAllocVerbose = !!EnvToLong("MTM_LARGE_ALLOC_VERBOSE", 0, 0, 1);
     QuarantineSize = EnvToLong("MTM_QUARANTINE_SIZE", 0, 0, 255);
     UseTag = EnvToLong("MTM_USE_TAG", 0, 0, 2);
-    UseAliases = !!EnvToLong("MTM_USE_ALIASES", 0, 0, 4);
+    UseAliases = EnvToLong("MTM_USE_ALIASES", 0, 0, 4);
     UseShadow = !!EnvToLong("MTM_USE_SHADOW", 0, 0, 1);
     HandleSigUsr2 = EnvToBool("MTM_HANDLE_SIGUSR2", true);
     HandleSigSegv = EnvToBool("MTM_HANDLE_SIGSEGV", true);
