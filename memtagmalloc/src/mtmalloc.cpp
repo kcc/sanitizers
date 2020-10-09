@@ -151,13 +151,18 @@ int posix_memalign(void **memptr, size_t alignment, size_t size) {
     *memptr = malloc(size);
     return 0;
   }
-  if (alignment <= 4096) {
-    size = MTMalloc::RoundDownTo(size, alignment);
+  assert(MTMalloc::IsPowerOfTwo(alignment));
+  assert(alignment >= sizeof(void*));
+  size = MTMalloc::RoundUpTo(size, alignment);
+  if (size <= MTMalloc::kMaxSizeClass) {
     *memptr = malloc(size);
+    //fprintf(stderr, "posix_memalign alignment %zx size %zx ptr %p\n", alignment,
+    //        size, *memptr);
+    assert(0 == (reinterpret_cast<uintptr_t>(*memptr) % alignment));
     return 0;
   }
-  fprintf(stderr, "posix_memalign %zd %zd\n", alignment, size);
-  assert(0);
+  MTMalloc::TLS.Stats.LargeAllocs++;
+  *memptr = large.Allocate(size, alignment);
   return 0;
 }
 
