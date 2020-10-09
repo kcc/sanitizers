@@ -16,7 +16,7 @@
 #ifdef __aarch64__
 static const bool kUseArmTBI = 1;
 #else
-static const bool kUseArmTBI = 1;
+static const bool kUseArmTBI = 0;
 #endif
 
 #ifdef __ARM_FEATURE_MEMORY_TAGGING
@@ -99,9 +99,9 @@ class AddressAndMemoryTags {
       if (!Config.UseAliases) return Addr;
       uintptr_t Ptr = reinterpret_cast<uintptr_t>(Addr);
       uintptr_t Tag = AddrTag & 15;
-      Tag <<= 40;
+      Tag <<= 37;
       uintptr_t Mask = 15;
-      Mask <<= 40;
+      Mask <<= 37;
       Addr = reinterpret_cast<uint8_t *>((Ptr & ~Mask) | Tag);
       return Addr;
     }
@@ -110,7 +110,7 @@ class AddressAndMemoryTags {
   uint8_t GetAddressTag(void *Addr) {
     if (kUseArmTBI)
       return (reinterpret_cast<uintptr_t>(Addr) >> 56);
-    return (reinterpret_cast<uintptr_t>(Addr) >> 40) & 15;
+    return (reinterpret_cast<uintptr_t>(Addr) >> 37) & 15;
   }
 
   int ProtMTE() {

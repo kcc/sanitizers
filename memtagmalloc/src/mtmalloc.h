@@ -32,6 +32,8 @@
 // TODO: Implement concurrent scan.
 // TODO: Scan stacks and globals.
 // TODO: split into more files.
+// TODO: Add sampling.
+// TODO: Add some form of thread-local cache.
 
 #ifndef __MTMALLOC_H__
 #define __MTMALLOC_H__
