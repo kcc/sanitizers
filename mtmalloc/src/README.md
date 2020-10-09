@@ -2,8 +2,10 @@
 
 Don't expect to see much here at the moment.
 This malloc implementation is mostly to enable our experimentation
-with hardware memory tagging extensions, such as Arm MTE, and related technologies
-(e.g.[MarkUs-Gc](https://github.com/kcc/sanitizers/blob/master/hwaddress-sanitizer/MarkUs-GC.md))
+with hardware memory tagging extensions, such as
+[Arm MTE](https://community.arm.com/developer/ip-products/processors/b/processors-ip-blog/posts/enhancing-memory-safety),
+and related technologies, 
+e.g.[MarkUs-Gc](https://github.com/kcc/sanitizers/blob/master/hwaddress-sanitizer/MarkUs-GC.md).
 
 ## Get and Build
 Make sure you have a recent clang++ instralled.
@@ -37,6 +39,45 @@ MTMalloc is configurable via environment variables, see `mtmalloc_config.h` for 
 # build your code and link with mtmalloc.a
 MTM_PRINT_STATS=1 ./a.out  # will print some stats on exit
 ```
+
+## Arm MTE
+MTMalloc implements basic support for Arm MTE:
+* Build MTMalloc on AArch64 Linux, using the recent clang (must support
+  `-march=armv8.5-a+memtag`)
+* Build fresh QEMU (currently, need to use
+  [this branch](https://github.com/rth7680/qemu/tree/tgt-arm-mte-user)
+* Run tests with `MTM_USE_MTE=1`
+
+```
+% cat ~/uaf.cpp
+#include <stdio.h>
+#include <arm_acle.h>
+
+char *p = new char[1000];
+char *q = p;
+int main() {
+  fprintf(stderr, "before %p\n", p);
+  fprintf(stderr, "memtag %p\n", __arm_mte_get_tag(p));
+  delete [] p;
+  fprintf(stderr, "after  %p\n", p);
+  fprintf(stderr, "memtag %p\n", __arm_mte_get_tag(p));
+  return *q;
+}
+
+% clang -march=armv8.5-a+memtag -g ~/uaf.cpp -o uaf mtmalloc.a -lpthread
+
+% qemu-aarch64 -E MTM_USE_MTE=1     ./uaf
+
+before 0x600601000000000
+memtag 0x600601000000000
+after  0x600601000000000
+memtag 0x700601000000000
+MTMalloc: SEGV si_addr: 0x600601000000000 si_code: 9
+qemu: uncaught target signal 5 (Trace/breakpoint trap) - core dumped
+
+
+```
+
 
 ## MTMalloc and TSan instrumentation
 When combined with clang's tsan instrumentation (e.g. `clang -O2 -fsanitize=thread -mllvm -tsan-instrument-atomics=0`), 
