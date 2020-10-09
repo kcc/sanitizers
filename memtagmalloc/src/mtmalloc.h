@@ -868,15 +868,18 @@ struct Allocator {
     Ptr = Tags.ApplyAddressTag(Ptr, 0);
     uintptr_t P = reinterpret_cast<uintptr_t>(Ptr);
     if (Config.UseAliases)
-      return P >= kAllocatorSpace && P < kAllocatorSpace + 16 * kAllocatorSize;
+      return P >= kAllocatorSpace &&
+             P < kAllocatorSpace + (kAllocatorSize << Config.UseAliases);
     return P >= kAllocatorSpace && P < kAllocatorSpace + kAllocatorSize;
   }
 
   void *RemoveAddressTagAndCheckForDoubleFree(void *Ptr) {
     uint8_t AddressTag = Tags.GetAddressTag(Ptr);
     Ptr = Tags.ApplyAddressTag(Ptr, 0);
-    uint8_t MemoryTag = Tags.GetMemoryTag(Ptr) & 15;
-    // fprintf(stderr, "Deallocate %p %x %x\n", Ptr, (int)AddressTag,
+    uint8_t MemoryTag = Tags.GetMemoryTag(Ptr);
+    if (Config.UseAliases)
+      MemoryTag &= (1 << Config.UseAliases) - 1;
+    //fprintf(stderr, "Deallocate %p %x %x\n", Ptr, (int)AddressTag,
     //        (int)MemoryTag);
     // TODO: ceck with UseMTE.
     if (Config.UseShadow && Config.UseAliases && AddressTag != MemoryTag) {
@@ -1034,7 +1037,7 @@ struct Allocator {
     if (Config.UseAliases) {
       // Super-inefficient way to have address tags (TLB doesn't like it).
       uintptr_t AliasPage = reinterpret_cast<uintptr_t>(MmapRes);
-      for (size_t Tag = 1; Tag < 16; Tag++) {
+      for (size_t Tag = 1; Tag < (1 << Config.UseAliases); Tag++) {
         AliasPage += kAllocatorSize;
         void *MremapRes =
             mremap(MmapRes, 0, kSuperPageSize, MREMAP_FIXED | MREMAP_MAYMOVE,

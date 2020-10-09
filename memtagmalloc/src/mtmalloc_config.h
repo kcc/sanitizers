@@ -19,7 +19,7 @@ struct MallocConfig {
   uint64_t LargeAllocVerbose : 1;
   uint64_t UseTag            : 2;  // 0: no tag, 1 : 4-bit tag, 2: 8bit tag.
   uint64_t UseShadow         : 1;
-  uint64_t UseAliases        : 1;
+  uint64_t UseAliases        : 3;  // 0..4
   uint64_t QuarantineSize    : 8;  // 0..255 percent.
   uint64_t HandleSigUsr2     : 1;
   uint64_t HandleSigSegv     : 1;
@@ -35,7 +35,7 @@ struct MallocConfig {
     LargeAllocVerbose = !!EnvToLong("MTM_LARGE_ALLOC_VERBOSE", 0, 0, 1);
     QuarantineSize = EnvToLong("MTM_QUARANTINE_SIZE", 0, 0, 255);
     UseTag = EnvToLong("MTM_USE_TAG", 0, 0, 2);
-    UseAliases = !!EnvToLong("MTM_USE_ALIASES", 0, 0, 1);
+    UseAliases = !!EnvToLong("MTM_USE_ALIASES", 0, 0, 4);
     UseShadow = !!EnvToLong("MTM_USE_SHADOW", 0, 0, 1);
     HandleSigUsr2 = EnvToBool("MTM_HANDLE_SIGUSR2", true);
     HandleSigSegv = EnvToBool("MTM_HANDLE_SIGSEGV", true);
