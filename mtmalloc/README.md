@@ -6,6 +6,25 @@ with hardware memory tagging extensions, such as
 and related technologies, e.g.
 [MarkUs-Gc](https://github.com/kcc/sanitizers/blob/master/hwaddress-sanitizer/MarkUs-GC.md).
 
+It is too early to fully document the MTMalloc design, since it is in flux,
+however here are some major points:
+* Large allocator, handles sizes more than ~ 256K. Does not use tagging.
+  Optionally does not reuse address space
+  in order to detect heap-use-after-free using page protection
+  (ala [electric fence](https://linux.die.net/man/3/efence)).
+* Small allocator, handles all small sizes.
+* Size classes are defined by a table, loaded at startup
+(similar to [tcmalloc](https://github.com/google/tcmalloc)).
+* Allocations are performed from Super Pages, each super page is
+dedicated to a single size class.
+* Allocator metadata is a single byte per allocated chunk. The byte represents
+  states such as AVAILABLE (available for allocation),
+  USED (currently allocated), QUARANTINED (in a non-FIFO quarantine),
+  MARKED (marked by the current in-progress GC scan). The metadata state
+  transfer is a single atomic (CAS or store).
+* Per-thread (or per-CPU) caches are currently not implemented (but can be
+  added in future).
+
 MTMalloc vs
 [Scudo Malloc](https://llvm.org/docs/ScudoHardenedAllocator.html):
 * MTMalloc is experimental, not ready for production use.
