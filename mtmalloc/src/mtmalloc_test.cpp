@@ -254,3 +254,12 @@ TEST(LargeAllocator, SimpleTest) {
   EXPECT_NE(P4, P5);  // must be different.
   EXPECT_DEATH(memset(P4, 1, 1), "");  // must be protected.
 }
+
+TEST(Signals, NullDeref) {
+  Allocator A;
+  memset(&A, 0, sizeof(A));
+  memset(&TLS, 0, sizeof(TLS));
+  A.Allocate(100);  // triggers sig handler init.
+  volatile int *p = reinterpret_cast<int*>(0x42UL);
+  EXPECT_DEATH(*p = 0, "MTMalloc: SEGV si_addr: 0x42");
+}

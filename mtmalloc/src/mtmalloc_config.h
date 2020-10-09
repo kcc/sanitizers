@@ -22,6 +22,7 @@ struct MallocConfig {
   uint64_t UseAliases        : 1;
   uint64_t QuarantineSize    : 8;  // 0..255 percent.
   uint64_t HandleSigUsr2     : 1;
+  uint64_t HandleSigSegv     : 1;
   uint64_t ReleaseFreq       : 8;  // 0 .. 255 (in miliseconds; 0 means off).
   uint64_t UseMTE            : 1;
 
@@ -37,6 +38,7 @@ struct MallocConfig {
     UseAliases = !!EnvToLong("MTM_USE_ALIASES", 0, 0, 1);
     UseShadow = !!EnvToLong("MTM_USE_SHADOW", 0, 0, 1);
     HandleSigUsr2 = EnvToBool("MTM_HANDLE_SIGUSR2", true);
+    HandleSigSegv = EnvToBool("MTM_HANDLE_SIGSEGV", true);
     ReleaseFreq = EnvToLong("MTM_RELEASE_FREQ", 50, 0, 255);
     UseMTE = EnvToBool("MTM_USE_MTE", false);
   }

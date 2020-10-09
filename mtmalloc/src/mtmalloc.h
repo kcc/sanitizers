@@ -938,19 +938,32 @@ struct Allocator {
     return nullptr;
   }
 
-  void SignalHandler() {
+  void ScanSigHandler() {
     ScanLoop();
   }
 
-  static void SignalHandler(int, siginfo_t *, void *) {
-    SingletonSelf->SignalHandler();
+  static void ScanSigHandler(int, siginfo_t *, void *) {
+    SingletonSelf->ScanSigHandler();
   }
 
-  void SetSignalHandler() {
+  void SetScanSigHandler() {
     struct sigaction sigact = {};
     sigact.sa_flags = SA_SIGINFO;
-    sigact.sa_sigaction = SignalHandler;
+    sigact.sa_sigaction = ScanSigHandler;
     if (sigaction(SIGUSR2, &sigact, 0)) TRAP();
+  }
+
+  static void SegvHandler(int, siginfo_t *info, void *) {
+    fprintf(stderr, "MTMalloc: SEGV si_addr: %p si_code: %d\n", info->si_addr,
+            info->si_code);
+    __builtin_trap();
+  }
+
+  void SetSegvHandler() {
+    struct sigaction sigact = {};
+    sigact.sa_flags = SA_SIGINFO;
+    sigact.sa_sigaction = SegvHandler;
+    if (sigaction(SIGSEGV, &sigact, 0)) TRAP();
   }
 
   static void TSDOnThreadExit(void *TSD) {
@@ -963,7 +976,8 @@ struct Allocator {
   __attribute__((noinline))
   void InitAll() {
     Config.Init();
-    if (Config.HandleSigUsr2) SetSignalHandler();
+    if (Config.HandleSigUsr2) SetScanSigHandler();
+    if (Config.HandleSigSegv) SetSegvHandler();
 
     for (size_t i = 0; i < kNumSizeClasses; i++) {
       size_t ChunkSize = SCArray[i];
