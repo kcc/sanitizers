@@ -954,8 +954,12 @@ struct Allocator {
   }
 
   static void SegvHandler(int, siginfo_t *info, void *) {
-    fprintf(stderr, "MTMalloc: SEGV si_addr: %p si_code: %d\n", info->si_addr,
-            info->si_code);
+    void *Addr = info->si_addr;
+    uint8_t AddrTag = Tags.GetAddressTag(Addr);
+    uint8_t MemTag = Tags.GetMemoryTag(Addr);
+    fprintf(stderr,
+            "MTMalloc: SEGV si_addr: %p si_code: %d addr_tag: %x mem_tag: %x\n",
+            Addr, info->si_code, (unsigned)AddrTag, (unsigned)MemTag);
     __builtin_trap();
   }
 

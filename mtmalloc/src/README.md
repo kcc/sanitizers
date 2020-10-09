@@ -72,7 +72,7 @@ before 0x600601000000000
 memtag 0x600601000000000
 after  0x600601000000000
 memtag 0x700601000000000
-MTMalloc: SEGV si_addr: 0x600601000000000 si_code: 9
+MTMalloc: SEGV si_addr: 0x600601000000000 si_code: 9 addr_tag: 6 mem_tag: 7
 qemu: uncaught target signal 5 (Trace/breakpoint trap) - core dumped
 
 
