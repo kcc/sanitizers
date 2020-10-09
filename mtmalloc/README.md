@@ -21,9 +21,10 @@ dedicated to a single size class.
   states such as AVAILABLE (available for allocation),
   USED (currently allocated), QUARANTINED (in a non-FIFO quarantine),
   MARKED (marked by the current in-progress GC scan). The metadata state
-  transfer is a single atomic (CAS or store).
+  transition is a single atomic (CAS or store).
 * Per-thread (or per-CPU) caches are currently not implemented (but can be
   added in future).
+* Software shadow is implemented to imitate MTE w/o the hardware.
 
 MTMalloc vs
 [Scudo Malloc](https://llvm.org/docs/ScudoHardenedAllocator.html):

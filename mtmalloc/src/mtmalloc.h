@@ -26,7 +26,6 @@
 // TODOs:
 // TODO: clang: zero freed pointers to reduce the number of dangling pointers.
 // TODO: Adjust size classes to reduce slack.
-// TODO: Store metadata for large size classes outside of SuperPage.
 // TODO: Handle small, medium, and huge size classes differently.
 // TODO: Privatize SuperPages (maybe only for small size classes) to avoid CAS.
 // TODO: Recycle unused SuperPages via madvise MADV_DONTNEED.
