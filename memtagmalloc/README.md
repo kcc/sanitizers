@@ -1,12 +1,12 @@
-# MTMalloc - experimental malloc with support for memory tagging.
+# MemTagMalloc - experimental malloc with support for memory tagging.
 
-MTMalloc is a `malloc` implementation suitable for experimentation
+MemTagMalloc is a `malloc` implementation suitable for experimentation
 with hardware memory tagging extensions, such as
 [Arm MTE](https://community.arm.com/developer/ip-products/processors/b/processors-ip-blog/posts/enhancing-memory-safety),
 and related technologies, e.g.
 [MarkUs-Gc](https://github.com/kcc/sanitizers/blob/master/hwaddress-sanitizer/MarkUs-GC.md).
 
-It is too early to fully document the MTMalloc design, since it is in flux,
+It is too early to fully document the MemTagMalloc design, since it is in flux,
 however here are some major points:
 * Large allocator, handles sizes more than ~ 256K. Does not use tagging.
   Optionally does not reuse address space
@@ -26,15 +26,15 @@ dedicated to a single size class.
   added in future).
 * Software shadow is implemented to imitate MTE w/o the hardware.
 
-MTMalloc vs
+MemTagMalloc vs
 [Scudo Malloc](https://llvm.org/docs/ScudoHardenedAllocator.html):
-* MTMalloc is experimental, not ready for production use.
-* MTMalloc is tailored towards effective GC scan and a non-FIFO quarantine.
-* MTMalloc allows experimentation with hardware memory tagging without
+* MemTagMalloc is experimental, not ready for production use.
+* MemTagMalloc is tailored towards effective GC scan and a non-FIFO quarantine.
+* MemTagMalloc allows experimentation with hardware memory tagging without
 the hardware or simulators (via compiler instrumentation).
-* MTMalloc does not hardnen against buffer overflows (unless MTE is enabled).
-* Still, Scudo and MTMalloc share some design ideas and we may eventually
-incorporate some of the MTMalloc ideas into Scudo.
+* MemTagMalloc does not hardnen against buffer overflows (unless MTE is enabled).
+* Still, Scudo and MemTagMalloc share some design ideas and we may eventually
+incorporate some of the MemTagMalloc ideas into Scudo.
 
 ## Get and Build
 Make sure you have a recent clang++ installed.
@@ -62,7 +62,7 @@ make test
 ```
 
 ## Flags
-MTMalloc is configurable via environment variables, see `mtmalloc_config.h` for the current list.
+MemTagMalloc is configurable via environment variables, see `mtmalloc_config.h` for the current list.
 
 ```
 # build your code and link with mtmalloc.a
@@ -70,8 +70,8 @@ MTM_PRINT_STATS=1 ./a.out  # will print some stats on exit
 ```
 
 ## Arm MTE
-MTMalloc implements basic support for Arm MTE:
-* Build MTMalloc on AArch64 Linux, using the recent clang (must support
+MemTagMalloc implements basic support for Arm MTE:
+* Build MemTagMalloc on AArch64 Linux, using the recent clang (must support
   `-march=armv8.5-a+memtag`)
 * Build fresh QEMU (currently, need to use
   [this branch](https://github.com/rth7680/qemu/tree/tgt-arm-mte-user)
@@ -101,16 +101,16 @@ before 0x600601000000000
 memtag 0x600601000000000
 after  0x600601000000000
 memtag 0x700601000000000
-MTMalloc: SEGV si_addr: 0x600601000000000 si_code: 9 addr_tag: 6 mem_tag: 7
+MemTagMalloc: SEGV si_addr: 0x600601000000000 si_code: 9 addr_tag: 6 mem_tag: 7
 qemu: uncaught target signal 5 (Trace/breakpoint trap) - core dumped
 
 
 ```
 
 
-## MTMalloc and TSan instrumentation
+## MemTagMalloc and TSan instrumentation
 When combined with clang's tsan instrumentation (e.g. `clang -O2 -fsanitize=thread -mllvm -tsan-instrument-atomics=0`), 
-MTMalloc can be used to gather statistics about memory loads.
+MemTagMalloc can be used to gather statistics about memory loads.
 It also works as a poor man's [HWASAN](https://clang.llvm.org/docs/HardwareAssistedAddressSanitizerDesign.html) on x86_64. 
 
 ```
@@ -123,7 +123,7 @@ int main() {
 }
 # compile with tsan, don't link!
 % clang -fsanitize=thread -mllvm -tsan-instrument-atomics=0 -c -g -O2 uaf.cpp
-# Link with MTMalloc (not with tsan!)
+# Link with MemTagMalloc (not with tsan!)
 % clang++ uaf.o sanitizers/mtmalloc/src/mtmalloc.a -lpthread
 # Collect stats on allocations and loads/stores.
 % MTM_PRINT_STATS=1 ./a.out
@@ -136,7 +136,7 @@ stat.access_other 4
 ```
 
 ## HWASAN
-MTMalloc is not a full-featured [HWASAN](https://clang.llvm.org/docs/HardwareAssistedAddressSanitizerDesign.html) implementation,
+MemTagMalloc is not a full-featured [HWASAN](https://clang.llvm.org/docs/HardwareAssistedAddressSanitizerDesign.html) implementation,
 but it can be used as a simple heap-only HWASAN-like tool on x86-64 (with tsan instrumentation, as described above). 
 * `MTM_USE_SHADOW=1` enables the use of software shadow memory (see `SetMemoryTag()` / `GetMemoryTag()`)
 * (x86_64-only) `MTM_USE_ALIASES=1` uses `mremap` to implement 16 page aliases for every small heap allocation, thus effectively implmenting 4-bit address tags in bits `40..43`. This is wastly inefficient compared to Arm's top-byte-ignore (TBI), but works as functional model of TBI. See `ApplyAddressTag()` and `GetAddressTag()`. 
