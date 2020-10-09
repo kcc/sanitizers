@@ -1,14 +1,23 @@
 # MTMalloc - experimental malloc with support for memory tagging.
 
-Don't expect to see much here at the moment.
-This malloc implementation is mostly to enable our experimentation
+MTMalloc is a `malloc` implementation suitable for experimentation
 with hardware memory tagging extensions, such as
 [Arm MTE](https://community.arm.com/developer/ip-products/processors/b/processors-ip-blog/posts/enhancing-memory-safety),
-and related technologies, 
-e.g.[MarkUs-Gc](https://github.com/kcc/sanitizers/blob/master/hwaddress-sanitizer/MarkUs-GC.md).
+and related technologies, e.g.
+[MarkUs-Gc](https://github.com/kcc/sanitizers/blob/master/hwaddress-sanitizer/MarkUs-GC.md).
+
+MTMalloc vs
+[Scudo Malloc](https://llvm.org/docs/ScudoHardenedAllocator.html):
+* MTMalloc is experimental, not ready for production use.
+* MTMalloc is tailored towards effective GC scan and a non-FIFO quarantine.
+* MTMalloc allows experimentation with hardware memory tagging without
+the hardware or simulators (via compiler instrumentation).
+* MTMalloc does not hardnen against buffer overflows (unless MTE is enabled).
+* Still, Scudo and MTMalloc share some design ideas and we may eventually
+incorporate some of the MTMalloc ideas into Scudo.
 
 ## Get and Build
-Make sure you have a recent clang++ instralled.
+Make sure you have a recent clang++ installed.
 Building with g++ is supported, but not regularly tested.
 ```
 git clone git@github.com:kcc/sanitizers.git
@@ -20,7 +29,7 @@ This will produce `mtmalloc.a` which you can link to your binary:
 
 ```
 echo 'void *p = new int[100000]; int main() {}' > test.cpp
-clang++  test.cpp mtmalloc.a -lpthread
+clang++ test.cpp mtmalloc.a -lpthread
 ./a.out
 ```
 
@@ -81,7 +90,7 @@ qemu: uncaught target signal 5 (Trace/breakpoint trap) - core dumped
 
 ## MTMalloc and TSan instrumentation
 When combined with clang's tsan instrumentation (e.g. `clang -O2 -fsanitize=thread -mllvm -tsan-instrument-atomics=0`), 
-MTMalloc can be used to gather statistics about memory loads. 
+MTMalloc can be used to gather statistics about memory loads.
 It also works as a poor man's [HWASAN](https://clang.llvm.org/docs/HardwareAssistedAddressSanitizerDesign.html) on x86_64. 
 
 ```
@@ -95,9 +104,9 @@ int main() {
 # compile with tsan, don't link!
 % clang -fsanitize=thread -mllvm -tsan-instrument-atomics=0 -c -g -O2 uaf.cpp
 # Link with MTMalloc (not with tsan!)
-% clang++ uaf.o sanitizers/mtmalloc/src/mtmalloc.a -lpthread 
+% clang++ uaf.o sanitizers/mtmalloc/src/mtmalloc.a -lpthread
 # Collect stats on allocations and loads/stores.
-% MTM_PRINT_STATS=1 ./a.out 
+% MTM_PRINT_STATS=1 ./a.out
 ...
 stat.allocs sc 0        size    16      count 1
 stat.allocs sc 21       size    480     count 1
@@ -106,7 +115,7 @@ stat.accesses sc 28     size    1024    count 1
 stat.access_other 4
 ```
 
-## HWASAN 
+## HWASAN
 MTMalloc is not a full-featured [HWASAN](https://clang.llvm.org/docs/HardwareAssistedAddressSanitizerDesign.html) implementation,
 but it can be used as a simple heap-only HWASAN-like tool on x86-64 (with tsan instrumentation, as described above). 
 * `MTM_USE_SHADOW=1` enables the use of software shadow memory (see `SetMemoryTag()` / `GetMemoryTag()`)
@@ -116,7 +125,7 @@ but it can be used as a simple heap-only HWASAN-like tool on x86-64 (with tsan i
 On x86_64:
 ```
 # Use as a poor man's HWASAN
-% MTM_USE_ALIASES=1 MTM_USE_SHADOW=1 ./a.out 
+% MTM_USE_ALIASES=1 MTM_USE_SHADOW=1 ./a.out
 ERROR: address-memory-tag-mismatch 0x6f8000080000 f 0
 Illegal instruction
 ```
@@ -124,7 +133,7 @@ Illegal instruction
 On AArch64:
 
 ```
-% MTM_USE_SHADOW=1 ./a.out 
+% MTM_USE_SHADOW=1 ./a.out
 ERROR: address-memory-tag-mismatch 0x7700608000080000 77 8
 Trace/breakpoint trap (core dumped)
 
