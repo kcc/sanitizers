@@ -465,6 +465,7 @@ struct SuperPage {
   }
 
   // Returns the new tag.
+  __attribute__((always_inline))
   uint8_t UpdateMemoryTagOnFree(void *P, size_t Size) {
     // if (!Config.UseShadow && !Config.UseMTE) return 0;
     uint8_t OldMemoryTag = Tags.GetMemoryTag(P);
@@ -775,7 +776,7 @@ struct Allocator {
     SizeClass SC  = SizeToSizeClass(Size, SCD);
 
     auto &PerSC = TLS.PerSC[SC.v];
-    TLS.Stats.AllocsPerSizeClass[SC.v]++;
+    if (Config.PrintStats) TLS.Stats.AllocsPerSizeClass[SC.v]++;
 
     if (PerSC.SP)
       if (void *Res = PerSC.SP->TryAllocate(DataOnlyScopeLevel, SCD,
@@ -1050,7 +1051,6 @@ struct Allocator {
     // (void*)kAllocatorSpace);
     SetSizeClass(Res->This(), SC);
     if (Config.PrintSpAlloc) {
-      fprintf(stderr, "Allocated SP: %d\n", (int)SC.v);
       Res->Print();
     }
     size_t ChunkSize = SCD.ChunkSize();
